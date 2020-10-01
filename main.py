@@ -46,7 +46,6 @@ class DataSetup:
     def __init__(self):
         self.db = Database()
         self.db.database.drop_collection("raw")
-        self.setup_data()
 
     def save_raw_matches_data(self, matches_data):
         for match_data in matches_data:
@@ -87,4 +86,7 @@ class DataSetup:
 
 
 if __name__ == "__main__":
-    DataSetup()
+    setup_data = input("Setup data: [Y/n]: ")
+    if setup_data.upper() == "Y":
+        setup = DataSetup()
+        setup.setup_data()
