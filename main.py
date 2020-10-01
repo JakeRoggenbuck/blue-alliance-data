@@ -2,6 +2,7 @@ from pymongo import MongoClient
 import requests
 import yaml
 
+TEAMS = [254, 1678, 1671, 253, 971, 973, 4488, 118, 116, 4, 100, 330]
 
 class Config:
     def __init__(self, path="config.yml"):
@@ -74,15 +75,47 @@ class DataSetup:
         url = f"team/frc{team_num}/matches/2017"
         puller = Puller(url)
         matches_data = puller.request()
-
+        print(team_num)
         self.save_raw_matches_data(matches_data)
 
     def setup_data(self):
         self.db.database.drop_collection("raw")
-        teams_nums = [1678, 254, 116, 118, 253]
 
-        for team_num in teams_nums:
+        for team_num in TEAMS:
             self.pull_data_from_team(team_num)
+
+
+class Calculations:
+    def __init__(self, team_num):
+        self.team_num = team_num
+        self.db = Database()
+        self.data = self.get_data_for_teams()
+        self.write()
+
+    def get_data_for_teams(self):
+        return [x for x in self.db.raw.find({"teams":{"$in":[f"frc{self.team_num}"]}})]
+
+    def get_averages(self):
+        averages = {"team": self.team_num}
+        data_fields = [
+            "autoFuelHigh",
+            "autoFuelLow",
+            "autoFuelPoints",
+            "autoPoints"
+        ]
+        for field in data_fields:
+            calc = self.get_average(self.data, field)
+            averages[field] = calc
+        return averages
+
+    def get_average(self, data: list, field: str):
+        total = 0
+        for tim in data:
+            total += tim[field]
+        return total / len(data)
+
+    def write(self):
+        self.db.calculated.insert_one(self.get_averages())
 
 
 if __name__ == "__main__":
@@ -90,3 +123,8 @@ if __name__ == "__main__":
     if setup_data.upper() == "Y":
         setup = DataSetup()
         setup.setup_data()
+
+    calc_data = input("Calculate data: [Y/n]: ")
+    if calc_data.upper() == "Y":
+        for x in TEAMS:
+            Calculations(x)
