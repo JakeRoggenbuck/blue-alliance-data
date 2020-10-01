@@ -1,8 +1,6 @@
 from pymongo import MongoClient
 import requests
 import yaml
-import pprint
-import time
 
 
 class Config:
@@ -44,46 +42,49 @@ class Puller:
         return request.json()
 
 
-DATABASE = Database()
+class DataSetup:
+    def __init__(self):
+        self.db = Database()
+        self.db.database.drop_collection("raw")
+        self.setup_data()
 
+    def save_raw_matches_data(self, matches_data):
+        for match_data in matches_data:
+            blue_document = {}
+            red_document = {}
 
-def save_raw_matches_data(matches_data):
-    for match_data in matches_data:
-        blue_document = {}
-        red_document = {}
+            if (breakdown := match_data.get("score_breakdown")) is not None:
+                if (alliances := match_data.get("alliances")) is not None:
+                    blue_breakdown = breakdown["blue"]
+                    red_breakdown = breakdown["red"]
 
-        if (breakdown := match_data.get("score_breakdown")) is not None:
-            if (alliances := match_data.get("alliances")) is not None:
-                blue_breakdown = breakdown["blue"]
-                red_breakdown = breakdown["red"]
+                    blue_team_keys = alliances["blue"]["team_keys"]
+                    red_team_keys = alliances["red"]["team_keys"]
 
-                blue_team_keys = alliances["blue"]["team_keys"]
-                red_team_keys = alliances["red"]["team_keys"]
+                    blue_document["teams"] = blue_team_keys
+                    red_document["teams"] = red_team_keys
 
-                blue_document["teams"] = blue_team_keys
-                red_document["teams"] = red_team_keys
+                    blue_document.update(blue_breakdown)
+                    red_document.update(red_breakdown)
 
-                blue_document.update(blue_breakdown)
-                red_document.update(red_breakdown)
+                    self.db.raw.insert_many(
+                        [blue_document, red_document]
+                    )
 
-                DATABASE.raw.insert_many([blue_document, red_document])
+    def pull_data_from_team(self, team_num):
+        url = f"team/frc{team_num}/matches/2017"
+        puller = Puller(url)
+        matches_data = puller.request()
 
+        self.save_raw_matches_data(matches_data)
 
-def pull_data_from_team(team_num):
-    url = f"team/frc{team_num}/matches/2017"
-    puller = Puller(url)
-    matches_data = puller.request()
+    def setup_data(self):
+        self.db.database.drop_collection("raw")
+        teams_nums = [1678, 254, 116, 118, 253]
 
-    save_raw_matches_data(matches_data)
-
-
-def setup_data():
-    DATABASE.database.drop_collection("raw")
-    teams_nums = [1678, 254, 116, 118, 253]
-
-    for team_num in teams_nums:
-        pull_data_from_team(team_num)
+        for team_num in teams_nums:
+            self.pull_data_from_team(team_num)
 
 
 if __name__ == "__main__":
-    setup_data()
+    DataSetup()
