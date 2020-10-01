@@ -44,7 +44,7 @@ class Puller:
         return request.json()
 
 
-def team(team_num):
+def get_team_data(team_num):
     database = Database()
 
     url = f"team/frc{team_num}/matches/2017"
@@ -75,4 +75,4 @@ def team(team_num):
 teams_nums = [1678, 254, 116, 118, 253]
 
 for team_num in teams_nums:
-    team(team_num)
+    get_team_data(team_num)
