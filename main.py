@@ -2,7 +2,6 @@ from pymongo import MongoClient
 import requests
 import yaml
 
-TEAMS = [254, 1678, 1671, 253, 971, 973, 4488, 118, 116, 4, 100, 330]
 
 class Config:
     def __init__(self, path="config.yml"):
@@ -44,7 +43,8 @@ class Puller:
 
 
 class DataSetup:
-    def __init__(self):
+    def __init__(self, teams):
+        self.teams = teams
         self.db = Database()
         self.db.database.drop_collection("raw")
 
@@ -72,16 +72,16 @@ class DataSetup:
                     )
 
     def pull_data_from_team(self, team_num):
-        url = f"team/frc{team_num}/matches/2017"
+        url = f"team/{team_num}/matches/2017"
         puller = Puller(url)
         matches_data = puller.request()
-        print(team_num)
         self.save_raw_matches_data(matches_data)
 
     def setup_data(self):
         self.db.database.drop_collection("raw")
 
-        for team_num in TEAMS:
+        for team_num in self.teams:
+            print(team_num)
             self.pull_data_from_team(team_num)
 
 
@@ -93,7 +93,7 @@ class Calculations:
         self.write()
 
     def get_data_for_teams(self):
-        return [x for x in self.db.raw.find({"teams":{"$in":[f"frc{self.team_num}"]}})]
+        return [x for x in self.db.raw.find({"teams":{"$in":[self.team_num]}})]
 
     def get_averages(self):
         averages = {"team": self.team_num}
@@ -119,12 +119,20 @@ class Calculations:
 
 
 if __name__ == "__main__":
+    db = Database()
+    event_key = input("Event key: ")
+    puller = Puller(f"event/{event_key}/teams/keys")
+    teams = puller.request()
+    print(teams)
+
     setup_data = input("Setup data: [Y/n]: ")
     if setup_data.upper() == "Y":
-        setup = DataSetup()
+        setup = DataSetup(teams)
         setup.setup_data()
 
     calc_data = input("Calculate data: [Y/n]: ")
     if calc_data.upper() == "Y":
-        for x in TEAMS:
+        db.database.drop_collection("calculated")
+        for x in teams:
+            print(x)
             Calculations(x)
